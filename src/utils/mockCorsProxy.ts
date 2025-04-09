@@ -6,14 +6,22 @@
  * implemented as a serverless function or backend service.
  */
 
-import { NextApiRequest, NextApiResponse } from 'next';
+interface RequestParams {
+  url: string;
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Extract the URL from the query parameters
-  const targetUrl = req.query.url as string;
+export default async function handler(request: Request): Promise<Response> {
+  // Get the URL from the request (either from query params or body)
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get('url');
 
   if (!targetUrl) {
-    return res.status(400).json({ error: 'URL parameter is required' });
+    return new Response(JSON.stringify({ error: 'URL parameter is required' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   try {
@@ -31,15 +39,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get the content type
     const contentType = response.headers.get('content-type') || 'text/html';
     
-    // Set the content type in the response
-    res.setHeader('Content-Type', contentType);
-    
-    // Stream the response
+    // Forward the response
     const data = await response.text();
-    res.status(200).send(data);
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*',
+      }
+    });
     
   } catch (error) {
     console.error('Proxy error:', error);
-    res.status(500).json({ error: 'Failed to fetch the requested URL' });
+    return new Response(JSON.stringify({ error: 'Failed to fetch the requested URL' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      }
+    });
   }
 }
